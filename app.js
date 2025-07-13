@@ -55,6 +55,11 @@ app.post('/interactions', verifyKeyMiddleware(process.env.PUBLIC_KEY), async fun
     }
 
     if (name === 'new-game') {
+      const now = new Date();
+      const defaultDate = new Date(now.getTime() - now.getTimezoneOffset() * 60000)
+        .toISOString()
+        .slice(0, 16)
+        .replace('T', ' ');
       return res.send({
         type: InteractionResponseType.MODAL,
         data: {
@@ -69,7 +74,7 @@ app.post('/interactions', verifyKeyMiddleware(process.env.PUBLIC_KEY), async fun
                   custom_id: 'date_time',
                   style: 1,
                   label: 'Datum & Uhrzeit',
-                  placeholder: 'YYYY-MM-DD HH:MM',
+                  value: defaultDate,
                 },
               ],
             },
@@ -77,10 +82,16 @@ app.post('/interactions', verifyKeyMiddleware(process.env.PUBLIC_KEY), async fun
               type: MessageComponentTypes.ACTION_ROW,
               components: [
                 {
-                  type: MessageComponentTypes.INPUT_TEXT,
-                  custom_id: 'tier',
-                  style: 1,
-                  label: 'Tier (BT, LT, HT, ET, Alle)',
+                  type: MessageComponentTypes.STRING_SELECT,
+                  custom_id: 'tier_select',
+                  placeholder: 'Tier wählen',
+                  options: [
+                    { label: 'BT', value: 'BT' },
+                    { label: 'LT', value: 'LT' },
+                    { label: 'HT', value: 'HT' },
+                    { label: 'ET', value: 'ET' },
+                    { label: 'Alle', value: 'Alle' },
+                  ],
                 },
               ],
             },
@@ -115,18 +126,22 @@ app.post('/interactions', verifyKeyMiddleware(process.env.PUBLIC_KEY), async fun
         const input = row.components[0];
         if (input.custom_id === 'date_time') {
           dateTime = input.value;
-        } else if (input.custom_id === 'tier') {
-          tier = input.value;
+        } else if (input.custom_id === 'tier_select') {
+          tier = input.values ? input.values[0] : input.value;
         } else if (input.custom_id === 'custom_text') {
           customText = input.value;
         }
       }
       const parsed = new Date(dateTime);
       const formatted = isNaN(parsed) ? dateTime : parsed.toLocaleString('de-DE');
+      const roleId = process.env.MAGIERGILDE_ROLE_ID;
+      const mention = roleId ? `<@&${roleId}>` : '@magiergilde';
+      const allowedMentions = roleId ? { roles: [roleId] } : undefined;
       return res.send({
         type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
         data: {
-          content: `${tier} - ${formatted} - ${customText} - @magiergilde`,
+          content: `${tier} - ${formatted} - ${customText} - ${mention}`,
+          allowed_mentions: allowedMentions,
         },
       });
     }
