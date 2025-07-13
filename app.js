@@ -19,8 +19,9 @@ const PORT = process.env.PORT || 3000;
  * Parse request body and verifies incoming requests using discord-interactions package
  */
 app.post('/interactions', verifyKeyMiddleware(process.env.PUBLIC_KEY), async function (req, res) {
-  // Interaction id, type and data
-  const { id, type, data } = req.body;
+  try {
+    // Interaction type and data
+    const { type, data } = req.body;
 
   /**
    * Handle verification requests
@@ -147,10 +148,22 @@ app.post('/interactions', verifyKeyMiddleware(process.env.PUBLIC_KEY), async fun
     }
   }
 
-  console.error('unknown interaction type', type);
-  return res.status(400).json({ error: 'unknown interaction type' });
+    console.error('unknown interaction type', type);
+    return res.status(400).json({ error: 'unknown interaction type' });
+  } catch (err) {
+    console.error('Error handling interaction:', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
 });
 
 app.listen(PORT, () => {
   console.log('Listening on port', PORT);
+});
+
+process.on('unhandledRejection', (err) => {
+  console.error('Unhandled rejection:', err);
+});
+
+process.on('uncaughtException', (err) => {
+  console.error('Uncaught exception:', err);
 });
