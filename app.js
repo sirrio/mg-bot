@@ -1,22 +1,18 @@
 import 'dotenv/config';
 import express from 'express';
 import {
-  ButtonStyleTypes,
   InteractionResponseFlags,
   InteractionResponseType,
   InteractionType,
   MessageComponentTypes,
   verifyKeyMiddleware,
 } from 'discord-interactions';
-import { getRandomEmoji, DiscordRequest } from './utils.js';
-import { getShuffledOptions, getResult } from './game.js';
+import { getRandomEmoji } from './utils.js';
 
 // Create an express app
 const app = express();
 // Get port, or default to 3000
 const PORT = process.env.PORT || 3000;
-// To keep track of our active games
-const activeGames = {};
 
 /**
  * Interactions endpoint URL where Discord will send HTTP requests
@@ -58,8 +54,82 @@ app.post('/interactions', verifyKeyMiddleware(process.env.PUBLIC_KEY), async fun
       });
     }
 
+    if (name === 'new-game') {
+      return res.send({
+        type: InteractionResponseType.MODAL,
+        data: {
+          custom_id: 'new_game_modal',
+          title: 'Neues Spiel',
+          components: [
+            {
+              type: MessageComponentTypes.ACTION_ROW,
+              components: [
+                {
+                  type: MessageComponentTypes.INPUT_TEXT,
+                  custom_id: 'date_time',
+                  style: 1,
+                  label: 'Datum & Uhrzeit',
+                  placeholder: 'YYYY-MM-DD HH:MM',
+                },
+              ],
+            },
+            {
+              type: MessageComponentTypes.ACTION_ROW,
+              components: [
+                {
+                  type: MessageComponentTypes.INPUT_TEXT,
+                  custom_id: 'tier',
+                  style: 1,
+                  label: 'Tier (BT, LT, HT, ET, Alle)',
+                },
+              ],
+            },
+            {
+              type: MessageComponentTypes.ACTION_ROW,
+              components: [
+                {
+                  type: MessageComponentTypes.INPUT_TEXT,
+                  custom_id: 'custom_text',
+                  style: 2,
+                  label: 'Custom Text',
+                },
+              ],
+            },
+          ],
+        },
+      });
+    }
+
     console.error(`unknown command: ${name}`);
     return res.status(400).json({ error: 'unknown command' });
+  }
+
+  if (type === InteractionType.MODAL_SUBMIT) {
+    const modalId = data.custom_id;
+    if (modalId === 'new_game_modal') {
+      const components = data.components || [];
+      let dateTime = '';
+      let tier = '';
+      let customText = '';
+      for (const row of components) {
+        const input = row.components[0];
+        if (input.custom_id === 'date_time') {
+          dateTime = input.value;
+        } else if (input.custom_id === 'tier') {
+          tier = input.value;
+        } else if (input.custom_id === 'custom_text') {
+          customText = input.value;
+        }
+      }
+      const parsed = new Date(dateTime);
+      const formatted = isNaN(parsed) ? dateTime : parsed.toLocaleString('de-DE');
+      return res.send({
+        type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+        data: {
+          content: `${tier} - ${formatted} - ${customText} - @magiergilde`,
+        },
+      });
+    }
   }
 
   console.error('unknown interaction type', type);
